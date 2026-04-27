@@ -22,14 +22,14 @@
             <div class="logo-box">
                 <i class="fa-solid fa-camera-viewfinder"></i>
             </div>
-            <h4>Re-ID Vision</h4>
+            <h4>V-Track</h4>
         </div>
 
         <ul class="nav-links mt-4">
-            <li class="active"><a href="#" id="nav-chat"><i class="fa-solid fa-comment-dots"></i> Search Assistant</a></li>
+            <li class="active"><a href="#" id="nav-vehicles"><i class="fa-solid fa-car"></i> Vehicle Tracking</a></li>
+            <li><a href="#" id="nav-alerts"><i class="fa-solid fa-triangle-exclamation"></i> Suspicious Alerts</a></li>
+            <li><a href="#" id="nav-chat"><i class="fa-solid fa-comment-dots"></i> Search Assistant</a></li>
             <li><a href="#" id="nav-upload"><i class="fa-solid fa-cloud-arrow-up"></i> Upload CCTV</a></li>
-            <li><a href="#"><i class="fa-solid fa-chart-pie"></i> Statistics</a></li>
-            <li><a href="#"><i class="fa-solid fa-gear"></i> Settings</a></li>
         </ul>
 
         <div class="pro-card mt-auto mb-3 mx-3 p-3">
@@ -73,8 +73,22 @@
             </div>
         </section>
 
-        <!-- View 2: Chat Interface -->
-        <section id="view-chat" class="chat-section d-flex flex-column">
+        <!-- View 2: Vehicle Tracking (Default) -->
+        <section id="view-vehicles" class="p-4 flex-grow-1 overflow-auto">
+            <div id="vehicle-grid" class="d-flex flex-wrap gap-3">
+                <!-- Vehicle cards will be injected here -->
+            </div>
+        </section>
+
+        <!-- View 3: Suspicious Alerts -->
+        <section id="view-alerts" class="p-4 d-none flex-grow-1 overflow-auto">
+            <div id="alerts-grid" class="d-flex flex-wrap gap-3">
+                <!-- Alert cards will be injected here -->
+            </div>
+        </section>
+
+        <!-- View 4: Chat Interface -->
+        <section id="view-chat" class="chat-section d-none flex-column">
             <!-- Chat history container -->
             <div class="chat-container flex-grow-1 p-4" id="chat-box">
                 <div class="chat-message ai-message">
@@ -111,6 +125,6 @@
 <!-- Bootstrap Bundle JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <!-- Custom JS -->
-<script src="/static/js/app.js"></script>
+<script src="/static/js/app.js?v=3"></script>
 </body>
 </html>

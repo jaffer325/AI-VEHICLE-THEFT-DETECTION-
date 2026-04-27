@@ -51,7 +51,7 @@ class FeatureExtractor:
             print(f"Embedding error: {e}")
             return np.zeros(2048).tolist()
 
-    def get_dominant_color(self, image_crop, k=3):
+    def get_dominant_color(self, image_crop, k=4):
         """
         Uses KMeans clustering to find the dominant color naming.
         """
@@ -59,10 +59,11 @@ class FeatureExtractor:
             return "unknown"
             
         try:
-            # Crop to center 50% to ignore background (road, grass, etc)
+            # Crop to focus on the main painted body of the vehicle.
+            # Focus tightly on the dead center to avoid black tires and white road reflections
             h, w = image_crop.shape[:2]
-            cx1, cy1 = w // 4, h // 4
-            cx2, cy2 = w - w // 4, h - h // 4
+            cx1, cy1 = w // 4, h // 3
+            cx2, cy2 = w - (w // 4), h - (h // 4)
             
             center_crop = image_crop[cy1:cy2, cx1:cx2]
             if center_crop.size == 0:
@@ -70,7 +71,7 @@ class FeatureExtractor:
                 
             # Resize image to speed up clustering
             small_image = cv2.resize(center_crop, (64, 64))
-            small_image = cv2.cvtColor(small_image, cv2.COLOR_BGR2RGB)
+            small_image = cv2.cvtColor(small_image, cv2.COLOR_BGR2HSV)
             
             # Reshape the image to be a list of pixels
             pixels = small_image.reshape((-1, 3))
@@ -83,43 +84,43 @@ class FeatureExtractor:
             counts = np.bincount(kmeans.labels_)
             dominant_color = kmeans.cluster_centers_[np.argmax(counts)]
             
-            return self._rgb_to_name(dominant_color)
+            return self._hsv_to_name(dominant_color)
         except Exception as e:
             print(f"Color extraction error: {e}")
             return "unknown"
 
-    def _rgb_to_name(self, rgb):
-        # A simple color closest-match map
-        colors = {
-            "red": (255, 0, 0),
-            "dark red": (139, 0, 0),
-            "green": (0, 255, 0),
-            "dark green": (0, 100, 0),
-            "blue": (0, 0, 255),
-            "dark blue": (0, 0, 139),
-            "light blue": (173, 216, 230),
-            "black": (30, 30, 30), # Shifted slightly from 0,0,0
-            "white": (245, 245, 245),
-            "silver": (192, 192, 192),
-            "gray": (128, 128, 128),
-            "yellow": (255, 255, 0),
-            "orange": (255, 140, 0),
-            "purple": (128, 0, 128),
-            "brown": (165, 42, 42),
-            "pink": (255, 192, 203)
-        }
+    def _hsv_to_name(self, hsv):
+        h, s, v = hsv
         
-        r, g, b = rgb
-        min_dist = float('inf')
-        closest_color = "unknown"
-        
-        for name, (cr, cg, cb) in colors.items():
-            dist = math.sqrt((r - cr)**2 + (g - cg)**2 + (b - cb)**2)
-            if dist < min_dist:
-                min_dist = dist
-                closest_color = name
-                
-        return closest_color
+        # Ranges for HSV color mapping
+        # Hue is 0-179 in OpenCV. Sat and Val are 0-255
+        if v <= 65:
+            return "black"
+        elif s < 60 and v <= 120:
+            return "black" # Low brightness and low saturation is black/dark gray cars
+        elif s < 50 and v > 200:
+            return "white"
+        elif s < 50 and v > 65 and v <= 200:
+            return "gray"
+        elif (0 <= h <= 10) or (170 <= h <= 179):
+            if v < 120: return "dark red"
+            elif s < 150: return "pink"
+            else: return "red"
+        elif 10 < h <= 25:
+            return "orange"
+        elif 25 < h <= 35:
+            return "yellow"
+        elif 35 < h <= 85:
+            if v < 120: return "dark green"
+            else: return "green"
+        elif 85 < h <= 130:
+            if v < 120: return "dark blue"
+            elif s < 150: return "light blue"
+            else: return "blue"
+        elif 130 < h <= 170:
+            return "purple"
+            
+        return "unknown"
 
     def get_number_plate(self, image_crop):
         """
@@ -139,6 +140,9 @@ class FeatureExtractor:
             text = pytesseract.image_to_string(binary, config='--psm 8')
             clean_text = ''.join(char for char in text if char.isalnum())
             return clean_text if len(clean_text) >= 4 else ""
+        except pytesseract.TesseractNotFoundError:
+            # Suppress error to avoid console spam if not installed
+            return ""
         except Exception as e:
-            print(f"OCR error: {e}")
+            # print(f"OCR warning: {e}") # Suppressed
             return ""

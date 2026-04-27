@@ -1,29 +1,37 @@
 document.addEventListener("DOMContentLoaded", () => {
     
-    // View switching
     const navChat = document.getElementById('nav-chat');
     const navUpload = document.getElementById('nav-upload');
+    const navVehicles = document.getElementById('nav-vehicles');
+    const navAlerts = document.getElementById('nav-alerts');
+    
     const viewChat = document.getElementById('view-chat');
     const viewUpload = document.getElementById('view-upload');
+    const viewVehicles = document.getElementById('view-vehicles');
+    const viewAlerts = document.getElementById('view-alerts');
+    
     const topTitle = document.getElementById('top-title');
 
-    navUpload.addEventListener('click', (e) => {
-        e.preventDefault();
-        navUpload.parentElement.classList.add('active');
-        navChat.parentElement.classList.remove('active');
-        viewChat.classList.add('d-none');
-        viewUpload.classList.remove('d-none');
-        topTitle.innerText = "Upload CCTV";
-    });
+    function switchView(activeNav, activeView, title) {
+        // Reset Nav
+        [navChat, navUpload, navVehicles, navAlerts].forEach(el => el.parentElement.classList.remove('active'));
+        activeNav.parentElement.classList.add('active');
+        
+        // Reset Views
+        [viewChat, viewUpload, viewVehicles, viewAlerts].forEach(el => {
+            el.classList.add('d-none');
+            el.classList.remove('d-flex');
+        });
+        
+        if (activeView === viewChat) activeView.classList.add('d-flex');
+        activeView.classList.remove('d-none');
+        topTitle.innerText = title;
+    }
 
-    navChat.addEventListener('click', (e) => {
-        e.preventDefault();
-        navChat.parentElement.classList.add('active');
-        navUpload.parentElement.classList.remove('active');
-        viewUpload.classList.add('d-none');
-        viewChat.classList.remove('d-none');
-        topTitle.innerText = "AI Search Assistant";
-    });
+    navUpload.addEventListener('click', (e) => { e.preventDefault(); switchView(navUpload, viewUpload, "Upload CCTV"); });
+    navChat.addEventListener('click', (e) => { e.preventDefault(); switchView(navChat, viewChat, "AI Search Assistant"); });
+    navVehicles.addEventListener('click', (e) => { e.preventDefault(); switchView(navVehicles, viewVehicles, "Vehicle Tracking"); fetchVehicles(); });
+    navAlerts.addEventListener('click', (e) => { e.preventDefault(); switchView(navAlerts, viewAlerts, "Suspicious Alerts"); fetchAlerts(); });
 
     // File Upload handling
     const videoFileInput = document.getElementById('video_file');
@@ -120,18 +128,24 @@ document.addEventListener("DOMContentLoaded", () => {
         let html = ``;
         
         results.forEach(res => {
-            const imgPath = `/media/${res.first_image || res.last_image || 'placeholder.jpg'}`;
-            const velocity = res.velocity ? Math.round(Math.sqrt(res.velocity.vx**2 + res.velocity.vy**2)) : 'N/A';
+            const imgPath = res.first_image ? `/${res.first_image}` : (res.last_image ? `/${res.last_image}` : '/static/img/placeholder.png');
+            
+            const v_id = (res.vehicle_id || res.id || 'N/A').split('-')[0].substring(0,8);
+            const v_type = (res.type || res.vehicle_type || 'unknown').toUpperCase();
             const color = res.color ? ` | ${res.color}` : '';
-            const plate = res.plate_number ? ` | ${res.plate_number}` : '';
+            const plate = (res.plate || res.plate_number) ? ` | ${res.plate || res.plate_number}` : '';
+            
+            let speed = 'N/A';
+            if (res.speed_history && res.speed_history.length > 0) speed = Math.max(...res.speed_history);
+            else if (res.velocity && res.velocity.vx) speed = Math.round(Math.sqrt(res.velocity.vx**2 + res.velocity.vy**2));
             
             html += `
             <div class="result-card">
-                <img src="${imgPath}" alt="${res.type}">
+                <img src="${imgPath}" alt="${v_type}">
                 <div class="result-details">
-                    <p><i class="fa-solid fa-tag text-primary"></i> ${res.id.split('-')[0]}</p>
-                    <p><i class="fa-solid fa-car"></i> ${res.vehicle_type}${color}${plate}</p>
-                    <p><i class="fa-solid fa-gauge"></i> ${res.velocity ? res.velocity.direction : 'unknown'} (${velocity}/s)</p>
+                    <p><i class="fa-solid fa-tag text-primary"></i> ${v_id}</p>
+                    <p><i class="fa-solid fa-car"></i> ${v_type}${color}${plate}</p>
+                    <p><i class="fa-solid fa-gauge"></i> Max Speed: ${speed}px/s</p>
                 </div>
             </div>`;
         });
@@ -179,23 +193,24 @@ document.addEventListener("DOMContentLoaded", () => {
         if (e.key === 'Enter') submitQuery();
     });
 
-    // History Sidebar
+    // History Sidebar (Updating total objects)
     async function refreshHistory() {
         try {
-            const res = await fetch('/get_results');
+            const res = await fetch('/vehicles');
             const data = await res.json();
             const panel = document.getElementById('history-panel');
             const totalObj = document.getElementById('total-objects');
             
-            if (data.results && data.results.length > 0) {
-                totalObj.innerText = `${data.results.length} Objects`;
+            if (data.vehicles && data.vehicles.length > 0) {
+                totalObj.innerText = `${data.vehicles.length} Objects`;
                 panel.innerHTML = '';
                 
-                data.results.slice(0, 15).forEach(item => {
+                const latest = [...data.vehicles].reverse().slice(0, 15);
+                latest.forEach(item => {
                     const d = document.createElement('div');
                     d.className = 'history-item';
                     const c = item.color ? `(${item.color})` : '';
-                    d.innerHTML = `<strong>${item.vehicle_type}</strong> ${c}<br><span class="text-muted" style="font-size:10px;">ID: ${item.id.split('-')[0]}</span>`;
+                    d.innerHTML = `<strong>${item.type || 'unknown'}</strong> ${c}<br><span class="text-muted" style="font-size:10px;">ID: ${item.vehicle_id.substring(0,8)}</span>`;
                     panel.appendChild(d);
                 });
             }
@@ -204,5 +219,76 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     }
 
-    refreshHistory();
+    // --- NEW DATA RENDERING FUNCTIONS ---
+
+    async function fetchVehicles() {
+        try {
+            const res = await fetch('/vehicles');
+            const data = await res.json();
+            const grid = document.getElementById('vehicle-grid');
+            grid.innerHTML = '';
+            
+            if (!data.vehicles || data.vehicles.length === 0) {
+                grid.innerHTML = '<p class="text-muted w-100 mt-4 text-center">No vehicles tracked yet.</p>';
+                return;
+            }
+            
+            data.vehicles.reverse().forEach(v => {
+                const img = v.last_image ? `/${v.last_image}` : '/static/img/placeholder.png';
+                const speed = (v.speed_history && v.speed_history.length > 0) ? Math.max(...v.speed_history) : 0;
+                
+                grid.innerHTML += `
+                <div class="card shadow-sm" style="width: 260px;">
+                    <img src="${img}" class="card-img-top bg-dark" style="height:150px;object-fit:contain;" alt="vehicle">
+                    <div class="card-body">
+                        <span class="badge bg-primary float-end">${v.type.toUpperCase()}</span>
+                        <h6 class="card-title text-truncate">ID: ${v.vehicle_id.substring(0,8)}</h6>
+                        <p class="card-text small mb-1"><i class="fa-solid fa-clock"></i> ${v.first_seen} - ${v.last_seen}</p>
+                        <p class="card-text small mb-1"><i class="fa-solid fa-palette text-muted"></i> ${v.color || 'Unknown'} | <i class="fa-solid fa-gauge text-muted"></i> Max ${speed}px/s</p>
+                        <p class="card-text small fw-bold text-success"><i class="fa-solid fa-car-side"></i> Plate: ${v.plate || 'N/A'}</p>
+                    </div>
+                </div>`;
+            });
+        } catch(e) {
+            console.error("Failed fetching vehicles", e);
+        }
+    }
+
+    async function fetchAlerts() {
+        try {
+            const res = await fetch('/events');
+            const data = await res.json();
+            const grid = document.getElementById('alerts-grid');
+            grid.innerHTML = '';
+            
+            if (!data.events || data.events.length === 0) {
+                grid.innerHTML = '<p class="text-muted w-100 mt-4 text-center">No suspicious events recorded.</p>';
+                return;
+            }
+            
+            data.events.reverse().forEach(ev => {
+                const img = ev.snapshot ? `/${ev.snapshot}` : '/static/img/placeholder.png';
+                const badgeColor = ev.risk_level === 'high' ? 'bg-danger' : 'bg-warning text-dark';
+                
+                grid.innerHTML += `
+                <div class="card shadow-sm border-danger" style="width: 280px;">
+                    <img src="${img}" class="card-img-top bg-dark" style="height:160px;object-fit:contain;" alt="Suspicious Event">
+                    <div class="card-body">
+                        <span class="badge ${badgeColor} float-end">${ev.risk_level.toUpperCase()}</span>
+                        <h6 class="card-title text-danger text-truncate"><i class="fa-solid fa-triangle-exclamation"></i> ${ev.event_type.replace('_',' ')}</h6>
+                        <p class="card-text small mb-1 fw-bold text-muted">${ev.start_time}</p>
+                        <ul class="small ps-3 text-muted mb-0">
+                            ${ev.reasons.map(r => `<li>${r}</li>`).join('')}
+                        </ul>
+                    </div>
+                </div>`;
+            });
+        } catch(e) {
+            console.error("Failed fetching alerts", e);
+        }
+    }
+
+    // Load initial view
+    switchView(navVehicles, viewVehicles, "Vehicle Tracking");
+    fetchVehicles();
 });

@@ -1,0 +1,33 @@
+# V-Track: AI-Powered Vehicle Theft & Behavior Detection System
+
+## 1. Project Overview
+V-Track is a sophisticated AI surveillance system designed to detect, track, and analyze vehicle and pedestrian behavior in CCTV footage. It uses state-of-the-art computer vision to identify suspicious activities like loitering, high-speed movement, and potential vehicle break-ins (tampering).
+
+## 2. Core Features
+- **Real-time Tracking**: Uses YOLOv8 and Re-Identification (Re-ID) to track objects consistently across frames.
+- **Atmospheric AI Search**: A natural language assistant (LLaMA 3.3 via Groq) that allows users to ask questions about the footage.
+- **Behavioral Analysis**: Heuristic-based engine that detects loitering, speeding, and person-to-vehicle tampering.
+- **Dynamic Snapshot Gallery**: Automatically stores the cleanest, sharpest images of detected objects using Laplacian sharpness scoring.
+- **HSV Color Detection**: High-accuracy vehicle color identification that resists shadows and glare.
+
+## 3. Technology Stack
+- **Backend**: Python, Flask (Web Server)
+- **AI/ML**: YOLOv8 (Detection), ResNet50 (Embeddings), OpenCV (Processing), Groq LLaMA 3.3 (Search)
+- **Frontend**: HTML5, CSS3 (Vanilla), JavaScript (ES6+), FontAwesome
+- **Data Storage**: Local JSON-based persistent storage.
+
+## 4. System Architecture
+The system follows a modular pipeline architecture where frames are processed sequentially through detection, tracking, and behavior analysis layers before being served via a REST API.
+
+![System Architecture](C:\Users\HP\.gemini\antigravity\brain\8aa6fa59-8b1c-4d0e-b37f-1c00bb0d9dba\system_architecture_1777133324901.png)
+
+## 5. Behavioral Rules (Rule Engine)
+1. **Fast Movement**: Detects objects exceeding specific speed thresholds (Running/Speeding).
+2. **Loitering**: Detects objects remaining stationary in a specific zone for >15 seconds.
+3. **Vehicle Tampering**: Detects people coming into close proximity (<60px) with parked vehicles.
+
+## 6. Directory Structure
+- `/ai_core`: The brain of the system (Tracking, Detection, Behavior).
+- `/web`: Frontend templates and static assets.
+- `/data`: Storage for processed JSON logs and high-quality snapshots.
+- `/media`: Temporary video storage.

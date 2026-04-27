@@ -3,9 +3,9 @@ import cv2
 import numpy as np
 
 class ObjectDetector:
-    def __init__(self, model_path='yolov8n.pt'):
+    def __init__(self, model_path='yolov8s.pt'):
         try:
-            # We use the nano model by default for speed
+            # Upgrade to the 'small' model (yolov8s) to significantly improve person detection accuracy
             self.model = YOLO(model_path)
             # YOLOv8 classes: 0: person, 2: car, 3: motorcycle, 5: bus, 7: truck
             self.target_classes = [0, 2, 3, 5, 7]
